@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe — Minimax AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E213F;
+    --panel: color-mix(in srgb, var(--bg) 82%, white 18%);
+    --line: color-mix(in srgb, var(--bg) 70%, #F7F2E8 20%);
+    --text: #F7F2E8;
+    --text-dim: color-mix(in srgb, var(--text) 55%, var(--bg) 45%);
+    --x-color: #BC8764;
+    --o-color: #F4BF98;
+    --win-glow: rgba(250, 228, 194, 0.18);
+  }
+ 
+  * { box-sizing: border-box; }
+ 
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+ 
+  .wrap {
+    width: 100%;
+    max-width: 780px;
+  }
+ 
+  header {
+    margin-bottom: 28px;
+  }
+ 
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.01em;
+  }
+ 
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 60ch;
+  }
+ 
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 28px;
+    align-items: start;
+  }
+ 
+  @media (max-width: 640px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+ 
+  .board-area {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+  }
+ 
+  .status {
+    font-size: 15px;
+    margin-bottom: 18px;
+    min-height: 22px;
+    color: var(--text-dim);
+  }
+ 
+  .status.active { color: var(--text); }
+ 
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    aspect-ratio: 1;
+  }
+ 
+  .cell {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(32px, 8vw, 52px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+  }
+ 
+  .cell:hover:not(.taken):not(.disabled) {
+    border-color: var(--text-dim);
+  }
+ 
+  .cell.taken, .cell.disabled { cursor: default; }
+ 
+  .cell.x { color: var(--x-color); }
+  .cell.o { color: var(--o-color); }
+ 
+  .cell.win {
+    background: var(--win-glow);
+    border-color: var(--x-color);
+  }
+ 
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+ 
+  button.reset {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+ 
+  button.reset:hover { border-color: var(--text-dim); }
+ 
+  select.first-move {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+ 
+  /* --- algorithm panel --- */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+ 
+  .panel h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin: 0 0 16px 0;
+    text-transform: none;
+  }
+ 
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+ 
+  .stat-row:last-of-type { border-bottom: none; }
+ 
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+ 
+  .stat-value {
+    font-size: 18px;
+    color: var(--o-color);
+  }
+ 
+  .log {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.9;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+ 
+  .log-entry span { color: var(--text); }
+ 
+  .log::-webkit-scrollbar { width: 4px; }
+  .log::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Tic Tac Toe — Minimax AI</h1>
+    <div class="subtitle">You play X. The AI plays O and explores every possible outcome before each move using the minimax algorithm — it cannot be beaten, at best you draw.</div>
+  </header>
+ 
+  <div class="layout">
+    <div class="board-area">
+      <div class="status" id="status">Your move — click a cell.</div>
+      <div class="board" id="board"></div>
+      <div class="controls">
+        <button class="reset" id="resetBtn">New game</button>
+        <select class="first-move" id="firstMove">
+          <option value="human">You go first</option>
+          <option value="ai">AI goes first</option>
+        </select>
+      </div>
+    </div>
+ 
+    <div class="panel">
+      <h2>Algorithm stats</h2>
+      <div class="stat-row">
+        <div class="stat-label">Nodes evaluated<br>(last AI move)</div>
+        <div class="stat-value" id="nodeCount">—</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">Max search depth</div>
+        <div class="stat-value" id="maxDepth">—</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">AI move time</div>
+        <div class="stat-value" id="moveTime">—</div>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+ 
+<script>
+const HUMAN = 'X';
+const AI = 'O';
+let board = Array(9).fill('');
+let gameOver = false;
+let humanTurn = true;
+ 
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const resetBtn = document.getElementById('resetBtn');
+const firstMoveSelect = document.getElementById('firstMove');
+const nodeCountEl = document.getElementById('nodeCount');
+const maxDepthEl = document.getElementById('maxDepth');
+const moveTimeEl = document.getElementById('moveTime');
+const logEl = document.getElementById('log');
+ 
+const WIN_LINES = [
+  [0,1,2],[3,4,5],[6,7,8],   // rows
+  [0,3,6],[1,4,7],[2,5,8],   // columns
+  [0,4,8],[2,4,6]            // diagonals
+];
+ 
+function checkWinner(b) {
+  for (const line of WIN_LINES) {
+    const [a, c, d] = line;
+    if (b[a] && b[a] === b[c] && b[a] === b[d]) return { winner: b[a], line };
+  }
+  if (b.every(cell => cell !== '')) return { winner: 'draw', line: null };
+  return null;
+}
+ 
+// ---- MINIMAX with node counting for the stats panel ----
+function minimax(b, depth, isMaximizing, stats) {
+  stats.nodes++;
+  stats.maxDepth = Math.max(stats.maxDepth, depth);
+ 
+  const result = checkWinner(b);
+  if (result) {
+    if (result.winner === AI) return 10 - depth;
+    if (result.winner === HUMAN) return depth - 10;
+    return 0; // draw
+  }
+ 
+  if (isMaximizing) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (b[i] === '') {
+        b[i] = AI;
+        best = Math.max(best, minimax(b, depth + 1, false, stats));
+        b[i] = '';
+      }
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (b[i] === '') {
+        b[i] = HUMAN;
+        best = Math.min(best, minimax(b, depth + 1, true, stats));
+        b[i] = '';
+      }
+    }
+    return best;
+  }
+}
+ 
+function bestAIMove() {
+  const stats = { nodes: 0, maxDepth: 0 };
+  let bestScore = -Infinity;
+  let bestIdx = -1;
+ 
+  const t0 = performance.now();
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === '') {
+      board[i] = AI;
+      const score = minimax(board, 0, false, stats);
+      board[i] = '';
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+  }
+  const t1 = performance.now();
+ 
+  nodeCountEl.textContent = stats.nodes.toLocaleString();
+  maxDepthEl.textContent = stats.maxDepth;
+  moveTimeEl.textContent = (t1 - t0).toFixed(1) + ' ms';
+ 
+  return bestIdx;
+}
+ 
+function addLog(text) {
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = text;
+  logEl.appendChild(entry);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+ 
+function render(winningLine) {
+  boardEl.innerHTML = '';
+  board.forEach((val, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (val === 'X') cell.classList.add('x');
+    if (val === 'O') cell.classList.add('o');
+    if (val) cell.classList.add('taken');
+    if (gameOver) cell.classList.add('disabled');
+    if (winningLine && winningLine.includes(i)) cell.classList.add('win');
+    cell.textContent = val;
+    cell.addEventListener('click', () => handleHumanMove(i));
+    boardEl.appendChild(cell);
+  });
+}
+ 
+function handleHumanMove(i) {
+  if (gameOver || board[i] !== '' || !humanTurn) return;
+  board[i] = HUMAN;
+  addLog(`You played cell <span>${i}</span>`);
+  humanTurn = false;
+  evaluateAndContinue();
+}
+ 
+function evaluateAndContinue() {
+  const result = checkWinner(board);
+  if (result) return finishGame(result);
+ 
+  render();
+  statusEl.textContent = 'AI is thinking…';
+  statusEl.classList.remove('active');
+ 
+  setTimeout(() => {
+    const move = bestAIMove();
+    board[move] = AI;
+    addLog(`AI played cell <span>${move}</span>`);
+ 
+    const result2 = checkWinner(board);
+    if (result2) return finishGame(result2);
+ 
+    humanTurn = true;
+    render();
+    statusEl.textContent = 'Your move — click a cell.';
+    statusEl.classList.add('active');
+  }, 150);
+}
+ 
+function finishGame(result) {
+  gameOver = true;
+  render(result.line);
+  if (result.winner === 'draw') {
+    statusEl.textContent = "It's a draw — the best you can do against perfect play.";
+  } else if (result.winner === HUMAN) {
+    statusEl.textContent = 'You won! (Shouldn\'t happen against a correct minimax AI.)';
+  } else {
+    statusEl.textContent = 'AI wins.';
+  }
+  statusEl.classList.add('active');
+}
+ 
+function newGame() {
+  board = Array(9).fill('');
+  gameOver = false;
+  logEl.innerHTML = '';
+  nodeCountEl.textContent = '—';
+  maxDepthEl.textContent = '—';
+  moveTimeEl.textContent = '—';
+ 
+  if (firstMoveSelect.value === 'ai') {
+    humanTurn = false;
+    render();
+    statusEl.textContent = 'AI is thinking…';
+    statusEl.classList.remove('active');
+    setTimeout(() => {
+      const move = bestAIMove();
+      board[move] = AI;
+      addLog(`AI played cell <span>${move}</span>`);
+      humanTurn = true;
+      render();
+      statusEl.textContent = 'Your move — click a cell.';
+      statusEl.classList.add('active');
+    }, 150);
+  } else {
+    humanTurn = true;
+    statusEl.textContent = 'Your move — click a cell.';
+    statusEl.classList.add('active');
+    render();
+  }
+}
+ 
+resetBtn.addEventListener('click', newGame);
+firstMoveSelect.addEventListener('change', newGame);
+ 
+newGame();
+</script>
+</body>
+</html>
